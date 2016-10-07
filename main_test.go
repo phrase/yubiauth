@@ -10,8 +10,8 @@ func TestParseOutput(t *testing.T) {
 	c := parseOutput([]byte(exampleOutput))
 	tests := []struct{ Has, Want interface{} }{
 		{len(c), 3},
-		{c["Other Type"], 345678},
-		{c["Key 1"], 123456},
+		{c["Other Type"], "345678"},
+		{c["Key 1"], "123456"},
 	}
 	for i, tc := range tests {
 		if tc.Has != tc.Want {
@@ -51,8 +51,8 @@ func TestWaitFor(t *testing.T) {
 	}
 	tests := []struct{ Has, Want interface{} }{
 		{len(v), 3},
-		{v["Key 1"], 123456},
-		{v["Key 1 Private"], 234567},
+		{v["Key 1"], "123456"},
+		{v["Key 1 Private"], "234567"},
 	}
 	for i, tc := range tests {
 		if tc.Has != tc.Want {
