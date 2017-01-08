@@ -23,8 +23,12 @@ func WaitForKeys(ctx context.Context) (Keys, error) {
 	return waitForKeysWithCommander(ctx, defaultCommander)
 }
 
+func ReadYubioath() (Keys, bool, error) {
+	return readYubioathWithCommander(defaultCommander)
+}
+
 func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) {
-	if keys, found, err := readYubioath(cmd); err != nil {
+	if keys, found, err := readYubioathWithCommander(cmd); err != nil {
 		return nil, err
 	} else if found {
 		return keys, nil
@@ -36,7 +40,7 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case _ = <-t.C:
-			keys, found, err := readYubioath(cmd)
+			keys, found, err := readYubioathWithCommander(cmd)
 			if err != nil {
 				return nil, err
 			} else if found {
@@ -46,7 +50,7 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 	}
 }
 
-func readYubioath(cmd Commander) (Keys, bool, error) {
+func readYubioathWithCommander(cmd Commander) (Keys, bool, error) {
 	b, err := cmd("yubioath")
 	if err != nil {
 		if bytes.Contains(b, msgYubiKeyNotFound) {
