@@ -51,6 +51,7 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 }
 
 func readYubioathWithCommander(cmd Commander) (Keys, bool, error) {
+	// TODO: try to make it also work using (and detecting) 'ykman oath code'
 	b, err := cmd("yubioath")
 	if err != nil {
 		if bytes.Contains(b, msgYubiKeyNotFound) {
