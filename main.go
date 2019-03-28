@@ -1,12 +1,12 @@
-package yubiauth
+package yubioath
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 type Command interface {
@@ -15,22 +15,26 @@ type Command interface {
 
 type Commander func(string, ...string) ([]byte, error)
 
-func defaultCommander(cmd string, args ...string) ([]byte, error) {
-	return exec.Command(cmd, args...).CombinedOutput()
-}
-
 func WaitForKeys(ctx context.Context) (Keys, error) {
-	return waitForKeysWithCommander(ctx, defaultCommander)
-}
+	_, err := exec.Command("which", "ykman").CombinedOutput()
+	if err != nil {
+		return nil, errors.Errorf("ykman seems to be not installed")
+	}
+	fn := func() (Keys, bool, error) {
+		c := exec.Command("ykman", "oath", "code")
+		b, err := c.CombinedOutput()
+		if err != nil {
+			if c.ProcessState.ExitCode() == 2 {
+				return nil, false, nil
+			}
+		}
+		return parseOutput(b), true, nil
+	}
 
-func ReadYubioath() (Keys, bool, error) {
-	return readYubioathWithCommander(defaultCommander)
-}
-
-func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) {
-	if keys, found, err := readYubioathWithCommander(cmd); err != nil {
-		return nil, err
-	} else if found {
+	keys, ok, err := fn()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	} else if ok {
 		return keys, nil
 	}
 	t := time.NewTicker(100 * time.Millisecond)
@@ -39,8 +43,8 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case _ = <-t.C:
-			keys, found, err := readYubioathWithCommander(cmd)
+		case <-t.C:
+			keys, found, err := fn()
 			if err != nil {
 				return nil, err
 			} else if found {
@@ -48,40 +52,7 @@ func waitForKeysWithCommander(ctx context.Context, cmd Commander) (Keys, error) 
 			}
 		}
 	}
-}
 
-func readYubioathWithCommander(cmd Commander) (Keys, bool, error) {
-	// TODO: try to make it also work using (and detecting) 'ykman oath code'
-	var b []byte
-	var err error
-	b, err = cmd("ykman", "oath", "code")
-	if err != nil {
-		if bytes.Contains(b, msgYkmanKeyNotFound) {
-			return nil, false, nil
-		}
-		b, err = cmd("yubioath")
-		if err != nil {
-			if bytes.Contains(b, msgYubiKeyNotFound) {
-				return nil, false, nil
-			}
-			return nil, false, fmt.Errorf("looks like you neither have ykman nor yubioath installed:%s\n%s", b, err)
-		}
-	}
-	return parseOutput(b), true, nil
-}
-
-var ErrTimeoutWaitingForKeys = fmt.Errorf("timeout waiting for keys")
-
-var (
-	msgYubiKeyNotFound  = []byte("No YubiKey found!")
-	msgYkmanKeyNotFound = []byte("No YubiKey detected!")
-)
-
-func isExecutableNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "executable file not found")
 }
 
 type Keys map[string]string
